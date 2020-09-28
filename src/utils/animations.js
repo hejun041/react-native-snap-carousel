@@ -37,9 +37,46 @@ export function defaultScrollInterpolator(index, carouselProps) {
 export function default2ScrollInterpolator(index, carouselProps) {
     const range = [2, 1, 0, -1];
     const inputRange = getInputRangeFromIndexes(range, index, carouselProps);
-    const outputRange = [0, 1, 1, 0];
+    const outputRange = [-1, 0, 0, 1];
 
     return { inputRange, outputRange };
+}
+
+export function customAnimatedStyles(index, animatedValue, carouselProps) {
+    let animatedOpacity = {};
+    let animatedScale = {};
+
+    if (carouselProps.inactiveSlideOpacity < 1) {
+        animatedOpacity = {
+            opacity: animatedValue.interpolate({
+                inputRange: [0, 1],
+                outputRange: [carouselProps.inactiveSlideOpacity, 1]
+            })
+        };
+    }
+    //左右两边x轴缩放间距(解决scale以中心缩放问题[ 1 ]22[ 1 ]=>[  1]22[1  ])
+    const offsetX = carouselProps.itemWidth * (1 - carouselProps.inactiveSlideScale) / 2
+    if (carouselProps.inactiveSlideScale < 1) {
+        animatedScale = {
+            transform: [{
+                scale: animatedValue.interpolate({
+                    inputRange: [-1, 0, 0, 1],
+                    outputRange: [carouselProps.inactiveSlideScale, 1, 1, carouselProps.inactiveSlideScale]
+                })
+            },
+            {
+                translateX: animatedValue.interpolate({
+                    inputRange: [-1, 0, 0, 1],
+                    outputRange: [-offsetX, 0, 0, offsetX]
+                })
+            }]
+        };
+    }
+
+    return {
+        ...animatedOpacity,
+        ...animatedScale
+    };
 }
 
 export function defaultAnimatedStyles(index, animatedValue, carouselProps) {
