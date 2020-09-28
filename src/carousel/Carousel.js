@@ -536,7 +536,7 @@ export default class Carousel extends Component {
         } else if ((activeSlideAlignment === 'end' && !opposite) ||
             (activeSlideAlignment === 'start' && opposite)) {
             return vertical ? sliderHeight - itemHeight : sliderWidth - itemWidth;
-        } else if (activeSlideAlignment === 'custom') {
+        } else if (activeSlideAlignment === 'custom') {//只针对中间两个居中的情况
             return (sliderWidth - itemWidth * 2) / 2
         } else {
             return vertical ? (sliderHeight - itemHeight) / 2 : (sliderWidth - itemWidth) / 2;
@@ -570,7 +570,7 @@ export default class Carousel extends Component {
         for (let i = 0; i < this._positions.length; i++) {
             const { start, end } = this._positions[i];
             if (center + centerOffset >= start && center - centerOffset <= end) {
-                if (i > loopClonesPerSide + dataLength) {//滚动到危险区域的时候重置
+                if (i > loopClonesPerSide + dataLength) {//滚动到危险区域的时候重置，解决快速滑动或者一次滑动多个item距离而导致的滑到最后几项不能循环的问题（当屏幕内可以放下多个item时）
                     return i - dataLength
                 }
                 return i;
@@ -742,7 +742,7 @@ export default class Carousel extends Component {
         const dataLength = data && data.length;
 
         if (!this._enableLoop() || !dataLength ||
-            (index > loopClonesPerSide && index < dataLength + loopClonesPerSide)) {
+            (index > loopClonesPerSide && index < dataLength + loopClonesPerSide)) {//去除了原来的index >= loopClonesPerSide（默认情况下当index=3的时候会导致android回滚的时候不会触发）
             return;
         }
 
