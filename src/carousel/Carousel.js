@@ -8,6 +8,7 @@ import {
     stackScrollInterpolator,
     tinderScrollInterpolator,
     defaultAnimatedStyles,
+    customAnimatedStyles,
     shiftAnimatedStyles,
     stackAnimatedStyles,
     tinderAnimatedStyles
@@ -70,7 +71,6 @@ export default class Carousel extends Component {
         onBeforeSnapToItem: PropTypes.func,
         onSnapToItem: PropTypes.func,
         has2Item: PropTypes.bool,
-        customMargin: PropTypes.number,
     };
 
     static defaultProps = {
@@ -104,7 +104,6 @@ export default class Carousel extends Component {
         useScrollView: !AnimatedFlatList,
         vertical: false,
         has2Item: false,//中间2个居中
-        customMargin: 0,//中间2个居中的默认margin偏移
     }
 
     constructor(props) {
@@ -375,6 +374,10 @@ export default class Carousel extends Component {
         return this.props.layout === 'tinder';
     }
 
+    _shouldUseCustomAnimatedStyles() {
+        return this.props.activeSlideAlignment === 'custom';
+    }
+
     _getCustomData(props = this.props) {
         const { data, loopClonesPerSide } = props;
         const dataLength = data && data.length;
@@ -525,7 +528,7 @@ export default class Carousel extends Component {
     }
 
     _getContainerInnerMargin(opposite = false) {
-        const { sliderWidth, sliderHeight, itemWidth, itemHeight, vertical, activeSlideAlignment, customMargin } = this.props;
+        const { sliderWidth, sliderHeight, itemWidth, itemHeight, vertical, activeSlideAlignment } = this.props;
 
         if ((activeSlideAlignment === 'start' && !opposite) ||
             (activeSlideAlignment === 'end' && opposite)) {
@@ -534,7 +537,7 @@ export default class Carousel extends Component {
             (activeSlideAlignment === 'start' && opposite)) {
             return vertical ? sliderHeight - itemHeight : sliderWidth - itemWidth;
         } else if (activeSlideAlignment === 'custom') {
-            return customMargin
+            return (sliderWidth - itemWidth * 2) / 2
         } else {
             return vertical ? (sliderHeight - itemHeight) / 2 : (sliderWidth - itemWidth) / 2;
         }
@@ -558,14 +561,18 @@ export default class Carousel extends Component {
         return offset + this._getViewportOffset() - this._getContainerInnerMargin();
     }
 
-    _getActiveItem(offset) {
-        const { activeSlideOffset, swipeThreshold } = this.props;
+    _getActiveItem(offset, comfrom) {
+        const { activeSlideOffset, swipeThreshold, loopClonesPerSide, data } = this.props;
+        const dataLength = data && data.length;
         const center = this._getCenter(offset);
         const centerOffset = activeSlideOffset || swipeThreshold;
 
         for (let i = 0; i < this._positions.length; i++) {
             const { start, end } = this._positions[i];
             if (center + centerOffset >= start && center - centerOffset <= end) {
+                if (i > loopClonesPerSide + dataLength) {//滚动到危险区域的时候重置
+                    return i - dataLength
+                }
                 return i;
             }
         }
@@ -735,7 +742,7 @@ export default class Carousel extends Component {
         const dataLength = data && data.length;
 
         if (!this._enableLoop() || !dataLength ||
-            (index >= loopClonesPerSide && index < dataLength + loopClonesPerSide)) {
+            (index > loopClonesPerSide && index < dataLength + loopClonesPerSide)) {
             return;
         }
 
@@ -780,7 +787,7 @@ export default class Carousel extends Component {
         const { callbackOffsetMargin, enableMomentum, onScroll } = this.props;
 
         const scrollOffset = event ? this._getScrollOffset(event) : this._currentContentOffset;
-        const nextActiveItem = this._getActiveItem(scrollOffset);
+        const nextActiveItem = this._getActiveItem(scrollOffset, '_onScroll');
         const itemReached = nextActiveItem === this._itemToSnapTo;
         const scrollConditions =
             scrollOffset >= this._scrollOffsetRef - callbackOffsetMargin &&
@@ -828,8 +835,9 @@ export default class Carousel extends Component {
             }
         }
 
-        if (nextActiveItem === this._itemToSnapTo &&
-            Math.trunc(scrollOffset) === Math.trunc(this._scrollOffsetRef)) {
+        if (itemReached &&
+            (Math.trunc(scrollOffset) === Math.trunc(this._scrollOffsetRef) ||
+                (Math.round(scrollOffset) === Math.round(this._scrollOffsetRef)))) {
             this._repositionScroll(nextActiveItem);
         }
 
@@ -883,7 +891,7 @@ export default class Carousel extends Component {
         }
 
         this._scrollStartOffset = this._getScrollOffset(event);
-        this._scrollStartActive = this._getActiveItem(this._scrollStartOffset);
+        this._scrollStartActive = this._getActiveItem(this._scrollStartOffset, '_onScrollBeginDrag');
         this._ignoreNextMomentum = false;
         // this._canFireCallback = false;
 
@@ -932,7 +940,7 @@ export default class Carousel extends Component {
         }
 
         this._scrollEndOffset = this._currentContentOffset;
-        this._scrollEndActive = this._getActiveItem(this._scrollEndOffset);
+        this._scrollEndActive = this._getActiveItem(this._scrollEndOffset, '_onScrollEnd');
 
         if (enableSnap) {
             this._snapScroll(this._scrollEndOffset - this._scrollStartOffset);
@@ -1200,6 +1208,8 @@ export default class Carousel extends Component {
             return stackAnimatedStyles(index, animatedValue, this.props, layoutCardOffset);
         } else if (this._shouldUseShiftLayout()) {
             return shiftAnimatedStyles(index, animatedValue, this.props);
+        } else if (this._shouldUseCustomAnimatedStyles()) {
+            return customAnimatedStyles(index, animatedValue, this.props);
         } else {
             return defaultAnimatedStyles(index, animatedValue, this.props);
         }
